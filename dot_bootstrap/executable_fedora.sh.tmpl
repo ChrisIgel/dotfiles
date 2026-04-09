@@ -62,6 +62,7 @@ sudo dnf install -y \
   wl-clipboard \
   fd-find \
   eza \
+  atuin \
   podman \
   code \
   nextcloud-client \
@@ -70,11 +71,7 @@ sudo dnf install -y \
   zellij \
   bottom
 
-# -- 4. Atuin ------------------------------------------------------------------
-log "Installing atuin..."
-curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh -s -- --non-interactive
-
-# -- 5. JetBrains Toolbox ------------------------------------------------------
+# -- 4. JetBrains Toolbox ------------------------------------------------------
 log "Installing JetBrains Toolbox (latest)..."
 mkdir -p "$HOME/.local/share/jetbrains-toolbox"
 log "  Downloading and extracting..."
@@ -95,7 +92,7 @@ log "  Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbo
 "$HOME/.local/share/jetbrains-toolbox/bin/jetbrains-toolbox" > /dev/null 2>&1 &
 disown
 
-# -- 6. SSH key -> GitHub ------------------------------------------------------
+# -- 5. SSH key -> GitHub ------------------------------------------------------
 log "Using git identity from chezmoi template: $GIT_NAME <$GIT_EMAIL>"
 
 if [[ -f "$SSH_KEY" ]]; then
