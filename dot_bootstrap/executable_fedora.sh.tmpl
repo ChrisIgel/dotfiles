@@ -52,6 +52,8 @@ sudo dnf install -y \
   git \
   vim-enhanced \
   vim-default-editor \
+  gnome-extensions-app \
+  gnome-tweaks \
   ffmpeg \
   7zip \
   jq \
@@ -162,5 +164,8 @@ flatpak install -y flathub \
   org.localsend.localsend_app \
   org.signal.Signal \
   de.bund.ausweisapp.ausweisapp2
+
+# -- 7. GNOME Extensions -------------------------------------------------
+gnome-extensions enable Resource_Monitor@Ory0n
 
 log "Setup complete!"

@@ -3,3 +3,9 @@ type = "archive"
 url = "https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly-20260310+b99cadb.tar.xz"
 exact = true
 stripComponents = 1
+
+[".local/share/gnome-shell/extensions/"]
+type = "archive"
+url = "https://github.com/0ry0n/Resource_Monitor/releases/latest/download/Resource_Monitor@Ory0n.zip"
+exact = true
+refreshPeriod = "168h"
