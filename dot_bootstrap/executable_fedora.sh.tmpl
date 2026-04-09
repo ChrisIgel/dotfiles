@@ -47,6 +47,7 @@ done
 
 # -- 3. Install packages -------------------------------------------------------
 log "Installing packages (this may take a while)..."
+sudo dnf check-update -y
 sudo dnf install -y \
   git \
   vim-enhanced \
@@ -70,6 +71,9 @@ sudo dnf install -y \
   lazygit \
   zellij \
   bottom
+
+# for mise auto completion
+mise use -g usage
 
 # -- 4. JetBrains Toolbox ------------------------------------------------------
 log "Installing JetBrains Toolbox (latest)..."
@@ -143,5 +147,20 @@ fi
 # Trust GitHub's host key so chezmoi doesn't prompt
 log "Adding github.com to known_hosts..."
 ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+
+# -- 6. Flathub & Flatpak apps -------------------------------------------------
+log "Adding Flathub repository..."
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+log "Installing Flatpak applications..."
+flatpak install -y flathub \
+  com.usebruno.Bruno \
+  io.dbeaver.DBeaverCommunity \
+  com.spotify.Client \
+  com.rustdesk.RustDesk \
+  com.mikrotik.WinBox \
+  org.localsend.localsend_app \
+  org.signal.Signal \
+  de.bund.ausweisapp.ausweisapp2
 
 log "Setup complete!"
