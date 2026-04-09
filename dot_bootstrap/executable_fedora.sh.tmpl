@@ -150,6 +150,10 @@ fi
 log "Adding github.com to known_hosts..."
 ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
 
+# Switch to using SSH for Chezmoi repo
+log "Switching chezmoi git remote to SSH..."
+chezmoi git remote set-url origin git@github.com:"$GITHUB_USER"/dotfiles.git
+
 # -- 6. Flathub & Flatpak apps -------------------------------------------------
 log "Adding Flathub repository..."
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
