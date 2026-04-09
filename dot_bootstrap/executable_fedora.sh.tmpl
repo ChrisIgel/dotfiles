@@ -21,13 +21,33 @@ mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
 if [[ ! -f "$SSH_KEY" ]]; then
-  read -rsp "Passphrase for SSH key (leave empty for none): " SSH_PASSPHRASE
-  echo
+  while true; do
+    read -rsp "Passphrase for SSH key (leave empty for none): " SSH_PASSPHRASE
+    echo
+    read -rsp "Verify passphrase: " SSH_PASSPHRASE_VERIFY
+    echo
+    if [[ "$SSH_PASSPHRASE" == "$SSH_PASSPHRASE_VERIFY" ]]; then
+      break
+    else
+      warn "Passphrases do not match. Try again."
+    fi
+  done
 fi
 
-echo "A GitHub Personal Access Token with the 'admin:public_key' scope or 'Git SSH Keys' is required."
+echo "A GitHub Personal Access Token with write access to 'Git SSH Keys' is required, create here: https://github.com/settings/personal-access-tokens"
 read -rsp "GitHub Personal Access Token: " GITHUB_TOKEN
 echo
+
+log "Validating GitHub token..."
+if ! GITHUB_USER_API=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user 2>/dev/null); then
+  die "Failed to validate GitHub token. Check your internet connection."
+fi
+
+if ! echo "$GITHUB_USER_API" | jq -e '.login' > /dev/null 2>&1; then
+  die "Invalid GitHub token or insufficient permissions."
+fi
+
+log "GitHub token validated successfully."
 
 log "Requesting sudo permissions..."
 sudo -v
@@ -47,8 +67,8 @@ done
 
 # -- 3. Install packages -------------------------------------------------------
 log "Installing packages (this may take a while)..."
-sudo dnf check-update -y
-sudo dnf install -y \
+sudo dnf check-update -y || true  # ignore "No packages marked for update" exit code
+sudo dnf install --allowerasing -y \
   git \
   vim-enhanced \
   vim-default-editor \
@@ -156,7 +176,7 @@ chezmoi git remote set-url origin git@github.com:"$GITHUB_USER"/dotfiles.git
 
 # -- 6. Flathub & Flatpak apps -------------------------------------------------
 log "Adding Flathub repository..."
-flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 log "Installing Flatpak applications..."
 flatpak install -y flathub \
@@ -169,7 +189,4 @@ flatpak install -y flathub \
   org.signal.Signal \
   de.bund.ausweisapp.ausweisapp2
 
-# -- 7. GNOME Extensions -------------------------------------------------
-gnome-extensions enable Resource_Monitor@Ory0n
-
-log "Setup complete!"
+log "Setup complete! Reboot is recommended to ensure all changes take effect."
