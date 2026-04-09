@@ -1,1 +1,1 @@
-eval "$(atuin init bash)"
+eval "$(atuin init --disable-up-arrow bash)"

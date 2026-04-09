@@ -1,0 +1,5 @@
+[".local/share/blesh"]
+type = "archive"
+url = "https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly-20260310+b99cadb.tar.xz"
+exact = true
+stripComponents = 1

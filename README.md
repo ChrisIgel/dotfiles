@@ -4,7 +4,7 @@
 
 ```bash
 sudo dnf install -y chezmoi
-chezmoi init --apply <your-github-username>
+chezmoi init --ssh --apply <your-github-username>
 ~/.bootstrap/fedora.sh
 ```
 
