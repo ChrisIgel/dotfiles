@@ -25,8 +25,8 @@ if [[ ! -f "$SSH_KEY" ]]; then
   echo
 fi
 
-echo "  A GitHub Personal Access Token with the 'admin:public_key' scope or 'Git SSH Keys' is required."
-read -rsp "  GitHub Personal Access Token: " GITHUB_TOKEN
+echo "A GitHub Personal Access Token with the 'admin:public_key' scope or 'Git SSH Keys' is required."
+read -rsp "GitHub Personal Access Token: " GITHUB_TOKEN
 echo
 
 log "Requesting sudo permissions..."
@@ -41,7 +41,7 @@ printf '[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/
 # -- 2. COPR repositories ------------------------------------------------------
 log "Enabling COPR repositories..."
 for repo in jdxcode/mise dejan/lazygit varlad/zellij atim/bottom; do
-  log "  copr enable $repo"
+  log "copr enable $repo"
   sudo dnf copr enable -y "$repo" 2>/dev/null
 done
 
@@ -82,14 +82,14 @@ log "Installing JetBrains Toolbox (latest)..."
 TOOLBOX_DIR="$HOME/.local/share/jetbrains-toolbox"
 
 if [[ -d "$TOOLBOX_DIR" ]]; then
-  log "  Toolbox bootstrap folder already exists at $TOOLBOX_DIR - skipping download and launch."
+  log "Toolbox bootstrap folder already exists at $TOOLBOX_DIR - skipping download and launch."
 else
   mkdir -p "$TOOLBOX_DIR"
-  log "  Downloading and extracting..."
+  log "Downloading and extracting..."
   curl -fsSL "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA" \
     | tar -xz --strip-components=1 -C "$TOOLBOX_DIR"
 
-  log "  Installing Toolbox runtime dependencies..."
+  log "Installing Toolbox runtime dependencies..."
   sudo dnf install -y \
     libXi \
     libXrender \
@@ -99,7 +99,7 @@ else
     tar \
     dbus-daemon
 
-  log "  Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
+  log "Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
   "$TOOLBOX_DIR/bin/jetbrains-toolbox" > /dev/null 2>&1 &
   disown
 fi
@@ -113,7 +113,7 @@ else
   log "Generating ed25519 SSH key..."
   ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "$SSH_KEY" -N "$SSH_PASSPHRASE"
   unset SSH_PASSPHRASE
-  log "  Key written to ${SSH_KEY}.pub"
+  log "Key written to ${SSH_KEY}.pub"
 fi
 
 log "Uploading public key to GitHub (account: $GITHUB_USER)..."
@@ -138,7 +138,7 @@ HTTP_STATUS=$(curl -fsSL \
 unset GITHUB_TOKEN  # clear token from memory immediately
 
 if [[ "$HTTP_STATUS" == "201" ]]; then
-  log "  SSH public key added to GitHub successfully (title: $KEY_TITLE)."
+  log "SSH public key added to GitHub successfully (title: $KEY_TITLE)."
 else
   warn "GitHub API returned HTTP $HTTP_STATUS - key may not have been added."
   warn "Response: $(cat /tmp/gh_key_response.json)"
