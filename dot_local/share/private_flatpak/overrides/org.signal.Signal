@@ -1,0 +1,3 @@
+[Environment]
+SIGNAL_PASSWORD_STORE=gnome-libsecret
+SIGNAL_USE_WAYLAND=1

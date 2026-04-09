@@ -1,0 +1,29 @@
+[user]
+	name = {{ .git_name }}
+	email = {{ .git_email }}
+
+[core]
+	autocrlf = false
+	eol = lf
+	editor = vim
+
+[rerere]
+	enabled = true
+
+[push]
+	default = current
+
+[init]
+	defaultBranch = main
+
+[filter "lfs"]
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+
+[alias]
+	fp = push --force-with-lease
+	rbm = !git fetch && git rebase origin/main
+	rbo = !git fetch && git rebase @{u}
+	rho = !git fetch && git reset --hard @{u}

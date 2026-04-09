@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# fedora-setup.sh - Fresh Fedora workstation bootstrap
+set -euo pipefail
+
+# -- Helpers -------------------------------------------------------------------
+log()  { echo -e "\033[1;32m[==>]\033[0m $*"; }
+warn() { echo -e "\033[1;33m[WARN]\033[0m $*" >&2; }
+die()  { echo -e "\033[1;31m[ERR ]\033[0m $*" >&2; exit 1; }
+
+# -- Inputs managed by chezmoi -------------------------------------------------
+GIT_NAME={{ .git_name | quote }}
+GIT_EMAIL={{ .git_email | quote }}
+GITHUB_USER={{ .github_user | quote }}
+
+if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" || -z "$GITHUB_USER" ]]; then
+  die "Missing chezmoi data (git_name, git_email, github_user). Re-run: chezmoi apply"
+fi
+
+SSH_KEY="$HOME/.ssh/id_ed25519"
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+
+if [[ ! -f "$SSH_KEY" ]]; then
+  read -rsp "Passphrase for SSH key (leave empty for none): " SSH_PASSPHRASE
+  echo
+fi
+
+echo "  A GitHub Personal Access Token with the 'admin:public_key' scope is required."
+read -rsp "  GitHub Personal Access Token: " GITHUB_TOKEN
+echo
+
+log "Requesting sudo permissions..."
+sudo -v
+
+# -- 1. VS Code repository -----------------------------------------------------
+log "Adding VS Code repository..."
+sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+printf '[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\n' \
+  | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
+
+# -- 2. COPR repositories ------------------------------------------------------
+log "Enabling COPR repositories..."
+for repo in jdxcode/mise dejan/lazygit varlad/zellij atim/bottom; do
+  log "  copr enable $repo"
+  sudo dnf copr enable -y "$repo" 2>/dev/null
+done
+
+# -- 3. Install packages -------------------------------------------------------
+log "Installing packages (this may take a while)..."
+sudo dnf install -y \
+  git \
+  vim-enhanced \
+  vim-default-editor \
+  ffmpeg \
+  7zip \
+  jq \
+  yq \
+  zoxide \
+  ripgrep \
+  fzf \
+  bat \
+  wl-clipboard \
+  fd-find \
+  eza \
+  podman \
+  code \
+  nextcloud-client \
+  mise \
+  lazygit \
+  zellij \
+  bottom
+
+# -- 4. Atuin ------------------------------------------------------------------
+log "Installing atuin..."
+curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh -s -- --non-interactive
+
+# -- 5. JetBrains Toolbox ------------------------------------------------------
+log "Installing JetBrains Toolbox (latest)..."
+mkdir -p "$HOME/.local/share/jetbrains-toolbox"
+log "  Downloading and extracting..."
+curl -fsSL "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA" \
+  | tar -xz --strip-components=1 -C "$HOME/.local/share/jetbrains-toolbox"
+
+log "  Installing Toolbox runtime dependencies..."
+sudo dnf install -y \
+  libXi \
+  libXrender \
+  libXtst \
+  fontconfig \
+  gtk3 \
+  tar \
+  dbus-daemon
+
+log "  Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
+"$HOME/.local/share/jetbrains-toolbox/bin/jetbrains-toolbox" > /dev/null 2>&1 &
+disown
+
+# -- 6. SSH key -> GitHub ------------------------------------------------------
+log "Using git identity from chezmoi template: $GIT_NAME <$GIT_EMAIL>"
+
+if [[ -f "$SSH_KEY" ]]; then
+  log "SSH key already exists at $SSH_KEY - skipping generation."
+else
+  log "Generating ed25519 SSH key..."
+  ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "$SSH_KEY" -N "$SSH_PASSPHRASE"
+  unset SSH_PASSPHRASE
+  log "  Key written to ${SSH_KEY}.pub"
+fi
+
+log "Uploading public key to GitHub (account: $GITHUB_USER)..."
+SSH_PUB_KEY=$(cat "${SSH_KEY}.pub")
+KEY_TITLE="$(hostname)-$(date +%Y%m%d)"
+
+JSON_PAYLOAD=$(jq -n \
+  --arg title "$KEY_TITLE" \
+  --arg key   "$SSH_PUB_KEY" \
+  '{title: $title, key: $key}')
+
+HTTP_STATUS=$(curl -fsSL \
+  -o /tmp/gh_key_response.json \
+  -w "%{http_code}" \
+  -X POST "https://api.github.com/user/keys" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  -H "Content-Type: application/json" \
+  -d "$JSON_PAYLOAD") || true
+
+unset GITHUB_TOKEN  # clear token from memory immediately
+
+if [[ "$HTTP_STATUS" == "201" ]]; then
+  log "  SSH public key added to GitHub successfully (title: $KEY_TITLE)."
+else
+  warn "GitHub API returned HTTP $HTTP_STATUS - key may not have been added."
+  warn "Response: $(cat /tmp/gh_key_response.json)"
+  warn "Add the key manually at https://github.com/settings/keys"
+  warn "Public key: $(cat "${SSH_KEY}.pub")"
+fi
+
+# Trust GitHub's host key so chezmoi doesn't prompt
+log "Adding github.com to known_hosts..."
+ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+
+log "Setup complete!"
