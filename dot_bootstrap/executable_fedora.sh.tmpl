@@ -25,7 +25,7 @@ if [[ ! -f "$SSH_KEY" ]]; then
   echo
 fi
 
-echo "  A GitHub Personal Access Token with the 'admin:public_key' scope is required."
+echo "  A GitHub Personal Access Token with the 'admin:public_key' scope or 'Git SSH Keys' is required."
 read -rsp "  GitHub Personal Access Token: " GITHUB_TOKEN
 echo
 
@@ -73,24 +73,30 @@ sudo dnf install -y \
 
 # -- 4. JetBrains Toolbox ------------------------------------------------------
 log "Installing JetBrains Toolbox (latest)..."
-mkdir -p "$HOME/.local/share/jetbrains-toolbox"
-log "  Downloading and extracting..."
-curl -fsSL "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA" \
-  | tar -xz --strip-components=1 -C "$HOME/.local/share/jetbrains-toolbox"
+TOOLBOX_DIR="$HOME/.local/share/jetbrains-toolbox"
 
-log "  Installing Toolbox runtime dependencies..."
-sudo dnf install -y \
-  libXi \
-  libXrender \
-  libXtst \
-  fontconfig \
-  gtk3 \
-  tar \
-  dbus-daemon
+if [[ -d "$TOOLBOX_DIR" ]]; then
+  log "  Toolbox bootstrap folder already exists at $TOOLBOX_DIR - skipping download and launch."
+else
+  mkdir -p "$TOOLBOX_DIR"
+  log "  Downloading and extracting..."
+  curl -fsSL "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA" \
+    | tar -xz --strip-components=1 -C "$TOOLBOX_DIR"
 
-log "  Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
-"$HOME/.local/share/jetbrains-toolbox/bin/jetbrains-toolbox" > /dev/null 2>&1 &
-disown
+  log "  Installing Toolbox runtime dependencies..."
+  sudo dnf install -y \
+    libXi \
+    libXrender \
+    libXtst \
+    fontconfig \
+    gtk3 \
+    tar \
+    dbus-daemon
+
+  log "  Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
+  "$TOOLBOX_DIR/bin/jetbrains-toolbox" > /dev/null 2>&1 &
+  disown
+fi
 
 # -- 5. SSH key -> GitHub ------------------------------------------------------
 log "Using git identity from chezmoi template: $GIT_NAME <$GIT_EMAIL>"
