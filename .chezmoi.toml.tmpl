@@ -1,4 +1,4 @@
 [data]
 git_name = {{ promptStringOnce . "git_name" "Git full name" | quote }}
 git_email = {{ promptStringOnce . "git_email" "Git email" | quote }}
-github_user = {{ promptStringOnce . "github_user" "GitHub username" | quote }}
+github_user = {{ output "git" "-C" .chezmoi.workingTree "remote" "get-url" "origin" | trim | replaceAllRegex ".*github\\.com[/:]([^/]+)/.*" "$1" | quote }}
