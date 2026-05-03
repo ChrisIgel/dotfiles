@@ -52,6 +52,9 @@ log "GitHub token validated successfully."
 log "Requesting sudo permissions..."
 sudo -v
 
+# -- 0. Misc -------------------------------------------------------------------
+fc-cache -v
+
 # -- 1. VS Code repository -----------------------------------------------------
 log "Adding VS Code repository..."
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
@@ -78,6 +81,7 @@ sudo dnf install --allowerasing -y \
   7zip \
   jq \
   yq \
+  zsh \
   zoxide \
   ripgrep \
   fzf \
@@ -96,6 +100,9 @@ sudo dnf install --allowerasing -y \
 
 # for mise auto completion
 mise use -g usage
+
+# change default shell to zsh
+sudo chsh -s $(which zsh) $USER
 
 # -- 4. JetBrains Toolbox ------------------------------------------------------
 log "Installing JetBrains Toolbox (latest)..."

@@ -1,8 +1,12 @@
-[".local/share/blesh"]
-type = "archive"
-url = "https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly-20260310+b99cadb.tar.xz"
-exact = true
-stripComponents = 1
+[".oh-my-zsh/"]
+type = "git-repo"
+url = "https://github.com/ohmyzsh/ohmyzsh.git"
+refreshPeriod = "168h"
+
+[".oh-my-zsh/custom/themes/powerlevel10k"]
+type = "git-repo"
+url = "https://github.com/romkatv/powerlevel10k.git"
+refreshPeriod = "168h"
 
 [".local/share/gnome-shell/extensions/"]
 type = "archive"
