@@ -52,8 +52,17 @@ log "GitHub token validated successfully."
 log "Requesting sudo permissions..."
 sudo -v
 
-# -- 0. Misc -------------------------------------------------------------------
+# -- 0. Fedora/Gnome Config -------------------------------------------------------------------
 fc-cache -v
+
+dconf load / <<EOF
+[Ptyxis]
+font-name='MesloLGS NF 12'
+use-system-font=false
+
+[desktop/interface]
+monospace-font-name='MesloLGS NF 12'
+EOF
 
 # -- 1. VS Code repository -----------------------------------------------------
 log "Adding VS Code repository..."
