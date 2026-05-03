@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # -- Helpers -------------------------------------------------------------------
-log()  { echo -e "\033[1;32m[==>]\033[0m $*"; }
+log()  { echo -e "\033[1;32m[==> ]\033[0m $*"; }
 warn() { echo -e "\033[1;33m[WARN]\033[0m $*" >&2; }
 die()  { echo -e "\033[1;31m[ERR ]\033[0m $*" >&2; exit 1; }
 
@@ -20,41 +20,47 @@ SSH_KEY="$HOME/.ssh/id_ed25519"
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
-if [[ ! -f "$SSH_KEY" ]]; then
-  while true; do
-    read -rsp "Passphrase for SSH key (leave empty for none): " SSH_PASSPHRASE
-    echo
-    read -rsp "Verify passphrase: " SSH_PASSPHRASE_VERIFY
-    echo
-    if [[ "$SSH_PASSPHRASE" == "$SSH_PASSPHRASE_VERIFY" ]]; then
-      break
-    else
-      warn "Passphrases do not match. Try again."
-    fi
-  done
+if [[ -n "${SKIP_GITHUB:-}" ]]; then
+  warn "SKIP_GITHUB is set — skipping SSH key passphrase prompt and GitHub token validation."
+else
+  if [[ ! -f "$SSH_KEY" ]]; then
+    while true; do
+      read -rsp "Passphrase for SSH key (leave empty for none): " SSH_PASSPHRASE
+      echo
+      read -rsp "Verify passphrase: " SSH_PASSPHRASE_VERIFY
+      echo
+      if [[ "$SSH_PASSPHRASE" == "$SSH_PASSPHRASE_VERIFY" ]]; then
+        break
+      else
+        warn "Passphrases do not match. Try again."
+      fi
+    done
+  fi
+
+  echo "A GitHub Personal Access Token with write access to 'Git SSH Keys' is required, create here: https://github.com/settings/personal-access-tokens"
+  read -rsp "GitHub Personal Access Token: " GITHUB_TOKEN
+  echo
+
+  log "Validating GitHub token..."
+  if ! GITHUB_USER_API=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user 2>/dev/null); then
+    die "Failed to validate GitHub token. Check your internet connection."
+  fi
+
+  if ! echo "$GITHUB_USER_API" | jq -e '.login' > /dev/null 2>&1; then
+    die "Invalid GitHub token or insufficient permissions."
+  fi
+
+  log "GitHub token validated successfully."
 fi
-
-echo "A GitHub Personal Access Token with write access to 'Git SSH Keys' is required, create here: https://github.com/settings/personal-access-tokens"
-read -rsp "GitHub Personal Access Token: " GITHUB_TOKEN
-echo
-
-log "Validating GitHub token..."
-if ! GITHUB_USER_API=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user 2>/dev/null); then
-  die "Failed to validate GitHub token. Check your internet connection."
-fi
-
-if ! echo "$GITHUB_USER_API" | jq -e '.login' > /dev/null 2>&1; then
-  die "Invalid GitHub token or insufficient permissions."
-fi
-
-log "GitHub token validated successfully."
 
 log "Requesting sudo permissions..."
 sudo -v
 
 # -- 0. Fedora/Gnome Config -------------------------------------------------------------------
+log "Reloading Fedora font cache..."
 fc-cache -v
 
+log "Setting Gnome font configuration..."
 dconf load / <<EOF
 [Ptyxis]
 font-name='MesloLGS NF 12'
@@ -114,95 +120,107 @@ mise use -g usage
 sudo chsh -s $(which zsh) $USER
 
 # -- 4. JetBrains Toolbox ------------------------------------------------------
-log "Installing JetBrains Toolbox (latest)..."
-TOOLBOX_DIR="$HOME/.local/share/jetbrains-toolbox"
-
-if [[ -d "$TOOLBOX_DIR" ]]; then
-  log "Toolbox bootstrap folder already exists at $TOOLBOX_DIR - skipping download and launch."
+if [[ -n "${SKIP_JETBRAINS:-}" ]]; then
+  warn "SKIP_JETBRAINS is set — skipping JetBrains Toolbox installation."
 else
-  mkdir -p "$TOOLBOX_DIR"
-  log "Downloading and extracting..."
-  curl -fsSL "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA" \
-    | tar -xz --strip-components=1 -C "$TOOLBOX_DIR"
+  log "Installing JetBrains Toolbox (latest)..."
+  TOOLBOX_DIR="$HOME/.local/share/jetbrains-toolbox"
 
-  log "Installing Toolbox runtime dependencies..."
-  sudo dnf install -y \
-    libXi \
-    libXrender \
-    libXtst \
-    fontconfig \
-    gtk3 \
-    tar \
-    dbus-daemon
+  if [[ -d "$TOOLBOX_DIR" ]]; then
+    log "Toolbox bootstrap folder already exists at $TOOLBOX_DIR - skipping download and launch."
+  else
+    mkdir -p "$TOOLBOX_DIR"
+    log "Downloading and extracting..."
+    curl -fsSL "https://data.services.jetbrains.com/products/download?platform=linux&code=TBA" \
+      | tar -xz --strip-components=1 -C "$TOOLBOX_DIR"
 
-  log "Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
-  "$TOOLBOX_DIR/bin/jetbrains-toolbox" > /dev/null 2>&1 &
-  disown
+    log "Installing Toolbox runtime dependencies..."
+    sudo dnf install -y \
+      libXi \
+      libXrender \
+      libXtst \
+      fontconfig \
+      gtk3 \
+      tar \
+      dbus-daemon
+
+    log "Launching Toolbox (will install itself to ~/.local/share/JetBrains/Toolbox)..."
+    "$TOOLBOX_DIR/bin/jetbrains-toolbox" > /dev/null 2>&1 &
+    disown
+  fi
 fi
 
 # -- 5. SSH key -> GitHub ------------------------------------------------------
 log "Using git identity from chezmoi template: $GIT_NAME <$GIT_EMAIL>"
 
-if [[ -f "$SSH_KEY" ]]; then
-  log "SSH key already exists at $SSH_KEY - skipping generation."
+if [[ -n "${SKIP_GITHUB:-}" ]]; then
+  warn "SKIP_GITHUB is set — skipping SSH key generation and GitHub API steps."
 else
-  log "Generating ed25519 SSH key..."
-  ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "$SSH_KEY" -N "$SSH_PASSPHRASE"
-  unset SSH_PASSPHRASE
-  log "Key written to ${SSH_KEY}.pub"
+  if [[ -f "$SSH_KEY" ]]; then
+    log "SSH key already exists at $SSH_KEY - skipping generation."
+  else
+    log "Generating ed25519 SSH key..."
+    ssh-keygen -t ed25519 -C "$GIT_EMAIL" -f "$SSH_KEY" -N "$SSH_PASSPHRASE"
+    unset SSH_PASSPHRASE
+    log "Key written to ${SSH_KEY}.pub"
+  fi
+
+  log "Uploading public key to GitHub (account: $GITHUB_USER)..."
+  SSH_PUB_KEY=$(cat "${SSH_KEY}.pub")
+  KEY_TITLE="$(hostname)-$(date +%Y%m%d)"
+
+  JSON_PAYLOAD=$(jq -n \
+    --arg title "$KEY_TITLE" \
+    --arg key   "$SSH_PUB_KEY" \
+    '{title: $title, key: $key}')
+
+  HTTP_STATUS=$(curl -fsSL \
+    -o /tmp/gh_key_response.json \
+    -w "%{http_code}" \
+    -X POST "https://api.github.com/user/keys" \
+    -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    -H "Content-Type: application/json" \
+    -d "$JSON_PAYLOAD") || true
+
+  unset GITHUB_TOKEN  # clear token from memory immediately
+
+  if [[ "$HTTP_STATUS" == "201" ]]; then
+    log "SSH public key added to GitHub successfully (title: $KEY_TITLE)."
+  else
+    warn "GitHub API returned HTTP $HTTP_STATUS - key may not have been added."
+    warn "Response: $(cat /tmp/gh_key_response.json)"
+    warn "Add the key manually at https://github.com/settings/keys"
+    warn "Public key: $(cat "${SSH_KEY}.pub")"
+  fi
+
+  # Trust GitHub's host key so chezmoi doesn't prompt
+  log "Adding github.com to known_hosts..."
+  ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+
+  # Switch to using SSH for Chezmoi repo
+  log "Switching chezmoi git remote to SSH..."
+  chezmoi git remote set-url origin git@github.com:"$GITHUB_USER"/dotfiles.git
 fi
-
-log "Uploading public key to GitHub (account: $GITHUB_USER)..."
-SSH_PUB_KEY=$(cat "${SSH_KEY}.pub")
-KEY_TITLE="$(hostname)-$(date +%Y%m%d)"
-
-JSON_PAYLOAD=$(jq -n \
-  --arg title "$KEY_TITLE" \
-  --arg key   "$SSH_PUB_KEY" \
-  '{title: $title, key: $key}')
-
-HTTP_STATUS=$(curl -fsSL \
-  -o /tmp/gh_key_response.json \
-  -w "%{http_code}" \
-  -X POST "https://api.github.com/user/keys" \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
-  -H "Accept: application/vnd.github+json" \
-  -H "X-GitHub-Api-Version: 2022-11-28" \
-  -H "Content-Type: application/json" \
-  -d "$JSON_PAYLOAD") || true
-
-unset GITHUB_TOKEN  # clear token from memory immediately
-
-if [[ "$HTTP_STATUS" == "201" ]]; then
-  log "SSH public key added to GitHub successfully (title: $KEY_TITLE)."
-else
-  warn "GitHub API returned HTTP $HTTP_STATUS - key may not have been added."
-  warn "Response: $(cat /tmp/gh_key_response.json)"
-  warn "Add the key manually at https://github.com/settings/keys"
-  warn "Public key: $(cat "${SSH_KEY}.pub")"
-fi
-
-# Trust GitHub's host key so chezmoi doesn't prompt
-log "Adding github.com to known_hosts..."
-ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
-
-# Switch to using SSH for Chezmoi repo
-log "Switching chezmoi git remote to SSH..."
-chezmoi git remote set-url origin git@github.com:"$GITHUB_USER"/dotfiles.git
 
 # -- 6. Flathub & Flatpak apps -------------------------------------------------
-log "Adding Flathub repository..."
-sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+if [[ -n "${SKIP_FLATPAK:-}" ]]; then
+  warn "SKIP_FLATPAK is set — skipping Flathub and Flatpak application installation."
+else
+  log "Adding Flathub repository..."
+  sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-log "Installing Flatpak applications..."
-flatpak install -y flathub \
-  com.usebruno.Bruno \
-  io.dbeaver.DBeaverCommunity \
-  com.spotify.Client \
-  com.rustdesk.RustDesk \
-  com.mikrotik.WinBox \
-  org.localsend.localsend_app \
-  org.signal.Signal \
-  de.bund.ausweisapp.ausweisapp2
+  log "Installing Flatpak applications..."
+  flatpak install -y flathub \
+    com.usebruno.Bruno \
+    io.dbeaver.DBeaverCommunity \
+    com.spotify.Client \
+    com.rustdesk.RustDesk \
+    com.mikrotik.WinBox \
+    org.localsend.localsend_app \
+    org.signal.Signal \
+    de.bund.ausweisapp.ausweisapp2
+fi
 
 log "Setup complete! Reboot is recommended to ensure all changes take effect."
