@@ -60,18 +60,8 @@ sudo -v
 log "Reloading Fedora font cache..."
 fc-cache
 
-log "Setting Gnome font configuration..."
-dconf load / <<EOF
-[org/gnome/Ptyxis]
-font-name='MesloLGS NF 12'
-use-system-font=false
-
-[org/gnome/desktop/interface]
-monospace-font-name='MesloLGS NF 12'
-
-[org/gnome/shell]
-enabled-extensions=['background-logo@fedorahosted.org', 'Resource_Monitor@Ory0n']
-EOF
+log "Setting Gnome configuration..."
+dconf load / < dconf.ini
 
 # -- 1. VS Code repository -----------------------------------------------------
 log "Adding VS Code repository..."
@@ -107,6 +97,7 @@ sudo dnf install --allowerasing -y \
   wl-clipboard \
   fd-find \
   eza \
+  tldr \
   atuin \
   podman \
   code \
@@ -224,6 +215,9 @@ else
     com.mikrotik.WinBox \
     org.localsend.localsend_app \
     org.signal.Signal \
+    app.zen_browser.zen \
+    net.thunderbird.Thunderbird \
+    org.gnome.seahorse.Application \
     de.bund.ausweisapp.ausweisapp2
 fi
 
