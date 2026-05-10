@@ -63,20 +63,42 @@ fc-cache
 log "Setting Gnome configuration..."
 dconf load / < dconf.ini
 
-# -- 1. VS Code repository -----------------------------------------------------
+# -- 1. GRUB Configuration -----------------------------------------------------
+log "Updating GRUB configuration with AMD GPU settings..."
+GRUB_FILE="/etc/default/grub"
+if [[ -f "$GRUB_FILE" ]]; then
+  sudo cp "$GRUB_FILE" "${GRUB_FILE}.backup"
+  log "GRUB backup created at ${GRUB_FILE}.backup"
+  
+  # Add amdgpu.abmlevel=0 to GRUB_CMDLINE_LINUX if not already present
+  if ! grep -q "amdgpu.abmlevel" "$GRUB_FILE"; then
+    sudo sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="amdgpu.abmlevel=0 /' "$GRUB_FILE"
+    log "Added amdgpu.abmlevel=0 to GRUB_CMDLINE_LINUX"
+    
+    log "Rebuilding GRUB configuration..."
+    sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+    log "GRUB configuration rebuilt successfully"
+  else
+    log "amdgpu.abmlevel already present in GRUB configuration"
+  fi
+else
+  warn "GRUB file not found at $GRUB_FILE - skipping AMD GPU configuration"
+fi
+
+# -- 2. VS Code repository -----------------------------------------------------
 log "Adding VS Code repository..."
 sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
 printf '[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\n' \
   | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
 
-# -- 2. COPR repositories ------------------------------------------------------
+# -- 3. COPR repositories ------------------------------------------------------
 log "Enabling COPR repositories..."
 for repo in jdxcode/mise dejan/lazygit varlad/zellij atim/bottom; do
   log "copr enable $repo"
   sudo dnf copr enable -y "$repo" 2>/dev/null
 done
 
-# -- 3. Install packages -------------------------------------------------------
+# -- 4. Install packages -------------------------------------------------------
 log "Installing packages (this may take a while)..."
 sudo dnf check-update -y || true  # ignore "No packages marked for update" exit code
 sudo dnf install --allowerasing -y \
@@ -114,7 +136,7 @@ mise use -g usage
 # change default shell to zsh
 sudo chsh -s $(which zsh) $USER
 
-# -- 4. JetBrains Toolbox ------------------------------------------------------
+# -- 5. JetBrains Toolbox ------------------------------------------------------
 if [[ -n "${SKIP_JETBRAINS:-}" ]]; then
   warn "SKIP_JETBRAINS is set — skipping JetBrains Toolbox installation."
 else
@@ -145,7 +167,7 @@ else
   fi
 fi
 
-# -- 5. SSH key -> GitHub ------------------------------------------------------
+# -- 6. SSH key -> GitHub ------------------------------------------------------
 log "Using git identity from chezmoi template: $GIT_NAME <$GIT_EMAIL>"
 
 if [[ -n "${SKIP_GITHUB:-}" ]]; then
@@ -199,7 +221,7 @@ else
   chezmoi git remote set-url origin git@github.com:"$GITHUB_USER"/dotfiles.git
 fi
 
-# -- 6. Flathub & Flatpak apps -------------------------------------------------
+# -- 7. Flathub & Flatpak apps -------------------------------------------------
 if [[ -n "${SKIP_FLATPAK:-}" ]]; then
   warn "SKIP_FLATPAK is set — skipping Flathub and Flatpak application installation."
 else
