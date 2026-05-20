@@ -96,7 +96,7 @@ printf '[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/
 
 # -- 3. COPR repositories ------------------------------------------------------
 log "Enabling COPR repositories..."
-for repo in jdxcode/mise dejan/lazygit varlad/zellij atim/bottom; do
+for repo in jdxcode/mise dejan/lazygit varlad/zellij atim/bottom imput/helium; do
   log "copr enable $repo"
   sudo dnf copr enable -y "$repo" 2>/dev/null
 done
@@ -133,6 +133,7 @@ sudo dnf install --allowerasing -y \
   mise \
   lazygit \
   zellij \
+  helium-bin \
   bottom
 
 # for mise auto completion
@@ -242,7 +243,6 @@ else
     com.mikrotik.WinBox \
     org.localsend.localsend_app \
     org.signal.Signal \
-    app.zen_browser.zen \
     org.mozilla.Thunderbird \
     org.gnome.seahorse.Application \
     de.bund.ausweisapp.ausweisapp2
