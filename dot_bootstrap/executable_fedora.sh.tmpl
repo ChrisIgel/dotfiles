@@ -17,6 +17,9 @@ if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" || -z "$GITHUB_USER" ]]; then
 fi
 
 SSH_KEY="$HOME/.ssh/id_ed25519"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DCONF_FILE="$SCRIPT_DIR/dconf.ini"
+
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 
@@ -61,7 +64,7 @@ log "Reloading Fedora font cache..."
 fc-cache
 
 log "Setting Gnome configuration..."
-dconf load / < dconf.ini
+dconf load / < "$DCONF_FILE"
 
 # -- 1. GRUB Configuration -----------------------------------------------------
 log "Updating GRUB configuration with AMD GPU settings..."
@@ -69,12 +72,12 @@ GRUB_FILE="/etc/default/grub"
 if [[ -f "$GRUB_FILE" ]]; then
   sudo cp "$GRUB_FILE" "${GRUB_FILE}.backup"
   log "GRUB backup created at ${GRUB_FILE}.backup"
-  
+
   # Add amdgpu.abmlevel=0 to GRUB_CMDLINE_LINUX if not already present
   if ! grep -q "amdgpu.abmlevel" "$GRUB_FILE"; then
     sudo sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="amdgpu.abmlevel=0 /' "$GRUB_FILE"
     log "Added amdgpu.abmlevel=0 to GRUB_CMDLINE_LINUX"
-    
+
     log "Rebuilding GRUB configuration..."
     sudo grub2-mkconfig -o /boot/grub2/grub.cfg
     log "GRUB configuration rebuilt successfully"
