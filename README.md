@@ -3,23 +3,15 @@
 ## Setup
 
 ```bash
-sudo dnf install -y chezmoi
+sudo dnf install -y chezmoi whiptail
 chezmoi init --apply <your-github-username>
 ~/.bootstrap/fedora.sh
 ```
 
-## Bootstrap skip flags
+The bootstrap script will prompt you to select which tasks to perform:
 
-The bootstrap script supports env vars to skip slow or interactive sections during testing:
+- **GitHub SSH & Token Setup** — SSH key generation, GitHub token validation, and remote configuration
+- **JetBrains Toolbox** — Download and launch JetBrains Toolbox
+- **Flatpak Applications** — Flathub setup and application installations
 
-| Variable           | Skips                                                                                                                                         |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SKIP_GITHUB=1`    | SSH key passphrase prompt, GitHub token prompt/validation, SSH key generation, GitHub API upload, `known_hosts` update, chezmoi remote switch |
-| `SKIP_JETBRAINS=1` | JetBrains Toolbox download and launch                                                                                                         |
-| `SKIP_FLATPAK=1`   | Flathub remote setup and all Flatpak app installs                                                                                             |
-
-Example:
-
-```bash
-SKIP_GITHUB=1 SKIP_JETBRAINS=1 SKIP_FLATPAK=1 ~/.bootstrap/fedora.sh
-```
+All tasks are enabled by default. Use the interactive menu to select which tasks to skip.
