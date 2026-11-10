@@ -41,7 +41,7 @@ require_command() {
 
 # Task selection with whiptail
 select_tasks() {
-  local tasks=("GitHub SSH & Token Setup" "JetBrains Toolbox" "Flatpak Applications")
+  local tasks=("GitHub SSH & Token Setup" "JetBrains Toolbox" "Flatpak Applications" "Snapper Configuration")
   
   require_command whiptail "newt"
   
@@ -52,7 +52,7 @@ select_tasks() {
   
   local selections
   if selections=$(whiptail --title "Bootstrap Tasks" --checklist \
-    "Select which tasks to perform:" 20 50 3 "${checklist[@]}" 3>&1 1>&2 2>&3); then
+    "Select which tasks to perform:" 20 50 4 "${checklist[@]}" 3>&1 1>&2 2>&3); then
     # Parse whiptail output (quoted values)
     eval "selected=($selections)"
     for task in "${tasks[@]}"; do
@@ -64,6 +64,7 @@ select_tasks() {
             "GitHub SSH & Token Setup") ENABLE_GITHUB=1 ;;
             "JetBrains Toolbox") ENABLE_JETBRAINS=1 ;;
             "Flatpak Applications") ENABLE_FLATPAK=1 ;;
+            "Snapper Configuration") ENABLE_SNAPPER=1 ;;
           esac
         fi
       done
@@ -73,6 +74,7 @@ select_tasks() {
     ENABLE_GITHUB=1
     ENABLE_JETBRAINS=1
     ENABLE_FLATPAK=1
+    ENABLE_SNAPPER=1
   fi
 }
 
@@ -315,6 +317,42 @@ setup_jetbrains() {
 }
 
 # ============================================================================
+# Section: Snapper Configuration
+# ============================================================================
+
+setup_snapper() {
+  if [[ ${ENABLE_SNAPPER:-0} -eq 0 ]]; then
+    log "Skipping Snapper configuration (as selected)."
+    return
+  fi
+  
+  local snapper_config_file="$SCRIPT_DIR/snapper_root"
+  
+  if [[ ! -f "$snapper_config_file" ]]; then
+    warn "Snapper configuration file not found at $snapper_config_file - skipping"
+    return
+  fi
+  
+  log "Configuring Snapper for root subvolume..."
+  
+  # Ensure snapper config directory exists
+  sudo mkdir -p /etc/snapper/configs
+  
+  # Copy the snapper configuration to the appropriate location
+  sudo cp "$snapper_config_file" /etc/snapper/configs/root
+  sudo chmod 644 /etc/snapper/configs/root
+  
+  log "Snapper configuration installed at /etc/snapper/configs/root"
+  
+  # Enable and start Snapper timeline and cleanup systemd timers
+  log "Enabling Snapper systemd units..."
+  sudo systemctl enable snapper-timeline.timer snapper-cleanup.timer
+  sudo systemctl start snapper-timeline.timer snapper-cleanup.timer
+  
+  log "Snapper timeline and cleanup timers started"
+}
+
+# ============================================================================
 # Section: Flatpak Applications
 # ============================================================================
 
@@ -361,6 +399,7 @@ main() {
   # Optional components
   setup_jetbrains
   setup_flatpak
+  setup_snapper
   setup_github_integration
   
   log "Setup complete! Reboot is recommended to ensure all changes take effect."
